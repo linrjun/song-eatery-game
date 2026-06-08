@@ -61,6 +61,7 @@ const state = {
   mood: 80,
   selectedTool: "floor",
   unlockedDishCount: 1,
+  runners: 0,
   customers: [],
   tiles: Array.from({ length: GRID_WIDTH * GRID_HEIGHT }, (_, index) => ({
     type: index === 16 ? "entrance" : index === 17 || index === 18 || index === 25 ? "floor" : "empty",
@@ -79,8 +80,10 @@ const elements = {
   reputation: document.querySelector("#reputation"),
   mood: document.querySelector("#mood"),
   layoutEffects: document.querySelector("#layoutEffects"),
+  staffPanel: document.querySelector("#staffPanel"),
   openDayBtn: document.querySelector("#openDayBtn"),
   researchBtn: document.querySelector("#researchBtn"),
+  hireRunnerBtn: document.querySelector("#hireRunnerBtn"),
   goalTables: document.querySelector("#goalTables"),
   goalStove: document.querySelector("#goalStove"),
   goalRep: document.querySelector("#goalRep"),
@@ -164,6 +167,7 @@ function updateStats() {
   elements.goalStove.classList.toggle("done", stoveCount >= 1);
   elements.goalRep.classList.toggle("done", state.reputation >= 15);
   renderLayoutEffects();
+  renderStaff();
 }
 
 function renderTools() {
@@ -205,6 +209,43 @@ function renderMenu() {
   elements.researchBtn.textContent =
     state.unlockedDishCount >= dishes.length ? "菜谱已全" : `研制新菜 ${nextCost} 钱`;
   elements.researchBtn.disabled = state.unlockedDishCount >= dishes.length || state.coins < nextCost;
+}
+
+function staffWage() {
+  return state.runners * 12;
+}
+
+function hireRunnerCost() {
+  return 65 + state.runners * 35;
+}
+
+function renderStaff() {
+  const hireCost = hireRunnerCost();
+  const capacityBonus = state.runners * 2;
+  elements.staffPanel.innerHTML = `
+    <article class="staff-card">
+      <span class="staff-icon">跑</span>
+      <div>
+        <strong>跑堂 ${state.runners} 人</strong>
+        <p>每日薪水 ${staffWage()} 钱，接待能力 +${capacityBonus}</p>
+      </div>
+    </article>
+  `;
+  elements.hireRunnerBtn.textContent = `雇跑堂 ${hireCost} 钱`;
+  elements.hireRunnerBtn.disabled = state.coins < hireCost;
+}
+
+function hireRunner() {
+  const cost = hireRunnerCost();
+  if (state.coins < cost) {
+    say(`铜钱不够，雇跑堂需要 ${cost} 钱。`);
+    return;
+  }
+
+  state.coins -= cost;
+  state.runners += 1;
+  say("新跑堂上工了，客人催菜时有人照应。");
+  render();
 }
 
 function renderLayoutEffects() {
@@ -369,8 +410,9 @@ function openDay() {
 
   const decorBonus = countTiles("decor") * 2;
   const guestCount = Math.min(tableIndexes.length, 2 + Math.floor(state.reputation / 10));
-  const cookingCapacity = Math.max(1, stoveCount * 2);
+  const cookingCapacity = Math.max(1, stoveCount * 2 + state.runners * 2);
   const layoutSummary = getLayoutSummary();
+  const wage = staffWage();
   let earned = 0;
   let gainedRep = 0;
   let moodDelta = decorBonus;
@@ -387,7 +429,7 @@ function openDay() {
       name: pick(customerNames),
       face: customerFaces[i % customerFaces.length],
       dish,
-      status: patient ? `吃得舒展，${layoutNote}` : `等得久了，${layoutNote}`,
+      status: patient ? `吃得舒展，${layoutNote}` : `等得久了，跑堂也忙不过来，${layoutNote}`,
     };
 
     state.tiles[tableIndex].customerId = customer.id;
@@ -398,7 +440,7 @@ function openDay() {
   }
 
   const rent = 12 + state.day * 2;
-  state.coins += earned - rent;
+  state.coins += earned - rent - wage;
   state.reputation += gainedRep + Math.floor(decorBonus / 3);
   state.mood = clamp(state.mood + moodDelta - 6, 0, 100);
   state.customers = newCustomers;
@@ -411,7 +453,7 @@ function openDay() {
     render();
   }, 1800);
 
-  say(`今日收入 ${earned} 钱，扣除柴米租脚 ${rent} 钱。布局带来满意 ${layoutSummary.moodBonus >= 0 ? "+" : ""}${layoutSummary.moodBonus}。`);
+  say(`今日收入 ${earned} 钱，扣除柴米租脚 ${rent} 钱、薪水 ${wage} 钱。布局带来满意 ${layoutSummary.moodBonus >= 0 ? "+" : ""}${layoutSummary.moodBonus}。`);
   render();
 }
 
@@ -461,5 +503,6 @@ function render() {
 
 elements.openDayBtn.addEventListener("click", openDay);
 elements.researchBtn.addEventListener("click", researchDish);
+elements.hireRunnerBtn.addEventListener("click", hireRunner);
 
 render();
