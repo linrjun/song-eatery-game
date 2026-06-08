@@ -9,6 +9,7 @@
   --jade: #4c8a73;
   --gold: #c9973f;
   --water: #5c7f9a;
+  --muted: rgba(37, 48, 49, 0.68);
   --shadow: rgba(45, 34, 23, 0.18);
   --tile: min(9.5vw, 74px);
   font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
@@ -446,7 +447,7 @@ h2 {
 
 .guest-card strong,
 .guest-card p,
-guest-record strong,
+.guest-record strong,
 .guest-record p {
   margin: 0;
 }
