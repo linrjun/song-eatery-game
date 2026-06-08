@@ -186,6 +186,11 @@ h2 {
   background: var(--brick);
 }
 
+.primary-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .game-stage {
   min-width: 0;
 }
@@ -309,6 +314,42 @@ h2 {
 .customer strong,
 .customer p {
   margin: 0;
+}
+
+.staff-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.staff-card {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px;
+  background: rgba(201, 151, 63, 0.14);
+}
+
+.staff-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  background: var(--wood);
+}
+
+.staff-card strong,
+.staff-card p {
+  margin: 0;
+}
+
+.staff-card p {
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .goals {
