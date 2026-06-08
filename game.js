@@ -103,6 +103,7 @@ const state = {
   unlockedDishCount: 1,
   runners: 0,
   customers: [],
+  guestBook: Object.fromEntries(guestTypes.map((guest) => [guest.name, { visits: 0, coins: 0 }])),
   tiles: Array.from({ length: GRID_WIDTH * GRID_HEIGHT }, (_, index) => ({
     type: index === 16 ? "entrance" : index === 17 || index === 18 || index === 25 ? "floor" : "empty",
     customerId: null,
@@ -121,6 +122,7 @@ const elements = {
   mood: document.querySelector("#mood"),
   layoutEffects: document.querySelector("#layoutEffects"),
   guestPanel: document.querySelector("#guestPanel"),
+  guestBook: document.querySelector("#guestBook"),
   staffPanel: document.querySelector("#staffPanel"),
   openDayBtn: document.querySelector("#openDayBtn"),
   researchBtn: document.querySelector("#researchBtn"),
@@ -214,6 +216,7 @@ function updateStats() {
   renderLayoutEffects();
   renderStaff();
   renderGuestPanel();
+  renderGuestBook();
 }
 
 function renderTools() {
@@ -299,6 +302,25 @@ function renderGuestPanel() {
   });
 }
 
+function renderGuestBook() {
+  elements.guestBook.innerHTML = "";
+
+  guestTypes.forEach((guest) => {
+    const unlocked = state.reputation >= guest.unlockRep;
+    const record = state.guestBook[guest.name];
+    const card = document.createElement("article");
+    card.className = `guest-record${unlocked ? "" : " locked"}`;
+    card.innerHTML = `
+      <span class="guest-face">${guest.face}</span>
+      <div>
+        <strong>${guest.name}</strong>
+        <p>${unlocked ? `到访 ${record.visits} 次，贡献 ${record.coins} 钱` : `名声 ${guest.unlockRep} 后可记录`}</p>
+      </div>
+    `;
+    elements.guestBook.appendChild(card);
+  });
+}
+
 function hireRunner() {
   const cost = hireRunnerCost();
   if (state.coins < cost) {
@@ -373,7 +395,7 @@ function renderCustomers() {
   state.customers.forEach((customer) => {
     const node = template.content.cloneNode(true);
     node.querySelector(".avatar").textContent = customer.face;
-    node.querySelector(".name").textContent = `${customer.name} 点了 ${customer.dish.name}`;
+    node.querySelector(".name").textContent = `${customer.name} 点了 ${customer.dish.name}，付 ${customer.paid} 钱`;
     node.querySelector(".status").textContent = customer.status;
     elements.customerList.appendChild(node);
   });
@@ -491,11 +513,14 @@ function openDay() {
     const tableLayout = getTableLayout(tableIndex);
     const layoutNote = describeTableLayout(tableLayout);
     const preference = applyGuestPreference(guest, tableLayout);
+    const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins;
+    const paid = patient ? dishValue : Math.floor(dishValue * 0.6);
     const customer = {
       id: createId(),
       name: guest.name,
       face: guest.face,
       dish,
+      paid,
       status: patient
         ? `吃得舒展，${layoutNote}${preference.note}`
         : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}`,
@@ -503,8 +528,9 @@ function openDay() {
 
     state.tiles[tableIndex].customerId = customer.id;
     newCustomers.push(customer);
-    const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins;
-    earned += patient ? dishValue : Math.floor(dishValue * 0.6);
+    state.guestBook[guest.name].visits += 1;
+    state.guestBook[guest.name].coins += paid;
+    earned += paid;
     gainedRep += patient ? dish.reputation + tableLayout.reputationBonus + preference.reputation : 0;
     moodDelta += (patient ? 3 : -9) + tableLayout.moodBonus + preference.mood;
   }
