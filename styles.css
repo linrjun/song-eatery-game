@@ -177,6 +177,7 @@ h2 {
 }
 
 .primary-action,
+.secondary-action,
 .street button {
   width: 100%;
   min-height: 42px;
@@ -186,7 +187,14 @@ h2 {
   background: var(--brick);
 }
 
-.primary-action:disabled {
+.secondary-action {
+  color: var(--wood-dark);
+  background: var(--paper-deep);
+  outline: 2px solid rgba(75, 45, 28, 0.28);
+}
+
+.primary-action:disabled,
+.secondary-action:disabled {
   cursor: not-allowed;
   opacity: 0.58;
 }
