@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>宋肆小筑 - 原型</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="经营状态">
+        <div>
+          <p class="eyebrow">宋肆小筑</p>
+          <h1>临安食肆营造录</h1>
+        </div>
+        <div class="stats" aria-live="polite">
+          <span>第 <strong id="day">1</strong> 日</span>
+          <span>铜钱 <strong id="coins">120</strong></span>
+          <span>名声 <strong id="reputation">0</strong></span>
+          <span>满意 <strong id="mood">80</strong></span>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="tool-panel" aria-label="建造工具">
+          <div class="panel-block">
+            <h2>营造</h2>
+            <div id="buildTools" class="build-tools"></div>
+          </div>
+
+          <div class="panel-block">
+            <h2>菜牌</h2>
+            <div id="menuList" class="menu-list"></div>
+            <button id="researchBtn" class="primary-action" type="button">研制新菜</button>
+          </div>
+
+          <div class="panel-block">
+            <h2>掌柜札记</h2>
+            <p id="advisor" class="advisor">
+              先摆两张食案，再添一口灶。客人入座后会点菜，灶台越多，出菜越稳。
+            </p>
+          </div>
+        </aside>
+
+        <section class="game-stage" aria-label="食肆地图">
+          <div class="street">
+            <span>御街</span>
+            <button id="openDayBtn" type="button">开市迎客</button>
+          </div>
+          <div id="grid" class="grid" role="grid" aria-label="食肆格子"></div>
+        </section>
+
+        <aside class="ledger" aria-label="今日流水">
+          <div class="panel-block">
+            <h2>今日客流</h2>
+            <div id="customerList" class="customer-list"></div>
+          </div>
+
+          <div class="panel-block">
+            <h2>经营目标</h2>
+            <ol class="goals">
+              <li id="goalTables">摆下 2 张食案</li>
+              <li id="goalStove">添置 1 口灶</li>
+              <li id="goalRep">名声达到 15</li>
+            </ol>
+          </div>
+
+          <div class="panel-block">
+            <h2>布局效果</h2>
+            <dl id="layoutEffects" class="layout-effects"></dl>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <template id="customerTemplate">
+      <article class="customer">
+        <span class="avatar"></span>
+        <div>
+          <strong class="name"></strong>
+          <p class="status"></p>
+        </div>
+      </article>
+    </template>
+
+    <script src="./game.js"></script>
+  </body>
+</html>
