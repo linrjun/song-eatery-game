@@ -360,6 +360,54 @@ h2 {
   line-height: 1.35;
 }
 
+.festival-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.festival-card {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  gap: 10px;
+  align-items: center;
+  min-height: 60px;
+  padding: 9px;
+  background: rgba(168, 75, 48, 0.1);
+}
+
+.festival-card.active {
+  background: rgba(201, 151, 63, 0.18);
+  outline: 2px solid rgba(201, 151, 63, 0.28);
+}
+
+.festival-month {
+  display: grid;
+  width: 50px;
+  height: 42px;
+  place-items: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  background: var(--brick);
+}
+
+.festival-card strong,
+.festival-card p,
+.festival-card small {
+  display: block;
+  margin: 0;
+}
+
+.festival-card p,
+.festival-card small {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.festival-card small {
+  color: var(--muted);
+}
+
 .guest-panel,
 .guest-book {
   display: grid;
@@ -398,7 +446,7 @@ h2 {
 
 .guest-card strong,
 .guest-card p,
-.guest-record strong,
+guest-record strong,
 .guest-record p {
   margin: 0;
 }
