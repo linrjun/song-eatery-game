@@ -51,8 +51,48 @@ const dishes = [
   { name: "梅花汤饼", price: 42, reputation: 6 },
 ];
 
-const customerNames = ["行商", "书生", "茶博士", "瓦舍伶人", "船娘", "画师"];
-const customerFaces = ["商", "士", "茶", "伶", "舟", "画"];
+const guestTypes = [
+  {
+    name: "行商",
+    face: "商",
+    unlockRep: 0,
+    spendBonus: 3,
+    patienceBonus: 0,
+    preference: "爱点贵菜，客单更高",
+  },
+  {
+    name: "书生",
+    face: "士",
+    unlockRep: 0,
+    spendBonus: 0,
+    patienceBonus: 1,
+    preference: "爱临窗雅座，满意更稳",
+  },
+  {
+    name: "茶博士",
+    face: "茶",
+    unlockRep: 8,
+    spendBonus: 1,
+    patienceBonus: 2,
+    preference: "等得起，但看重名声",
+  },
+  {
+    name: "瓦舍伶人",
+    face: "伶",
+    unlockRep: 16,
+    spendBonus: 5,
+    patienceBonus: -1,
+    preference: "出手阔，但催菜急",
+  },
+  {
+    name: "船客",
+    face: "舟",
+    unlockRep: 24,
+    spendBonus: 2,
+    patienceBonus: 0,
+    preference: "讨厌烟火贴席",
+  },
+];
 
 const state = {
   day: 1,
@@ -80,6 +120,7 @@ const elements = {
   reputation: document.querySelector("#reputation"),
   mood: document.querySelector("#mood"),
   layoutEffects: document.querySelector("#layoutEffects"),
+  guestPanel: document.querySelector("#guestPanel"),
   staffPanel: document.querySelector("#staffPanel"),
   openDayBtn: document.querySelector("#openDayBtn"),
   researchBtn: document.querySelector("#researchBtn"),
@@ -99,6 +140,10 @@ function getTool(id) {
 
 function unlockedDishes() {
   return dishes.slice(0, state.unlockedDishCount);
+}
+
+function availableGuestTypes() {
+  return guestTypes.filter((guest) => state.reputation >= guest.unlockRep);
 }
 
 function neighborIndexes(index) {
@@ -168,6 +213,7 @@ function updateStats() {
   elements.goalRep.classList.toggle("done", state.reputation >= 15);
   renderLayoutEffects();
   renderStaff();
+  renderGuestPanel();
 }
 
 function renderTools() {
@@ -233,6 +279,24 @@ function renderStaff() {
   `;
   elements.hireRunnerBtn.textContent = `雇跑堂 ${hireCost} 钱`;
   elements.hireRunnerBtn.disabled = state.coins < hireCost;
+}
+
+function renderGuestPanel() {
+  elements.guestPanel.innerHTML = "";
+
+  guestTypes.forEach((guest) => {
+    const unlocked = state.reputation >= guest.unlockRep;
+    const card = document.createElement("article");
+    card.className = `guest-card${unlocked ? "" : " locked"}`;
+    card.innerHTML = `
+      <span class="guest-face">${guest.face}</span>
+      <div>
+        <strong>${guest.name}</strong>
+        <p>${unlocked ? guest.preference : `名声 ${guest.unlockRep} 解锁`}</p>
+      </div>
+    `;
+    elements.guestPanel.appendChild(card);
+  });
 }
 
 function hireRunner() {
@@ -413,6 +477,7 @@ function openDay() {
   const cookingCapacity = Math.max(1, stoveCount * 2 + state.runners * 2);
   const layoutSummary = getLayoutSummary();
   const wage = staffWage();
+  const guests = availableGuestTypes();
   let earned = 0;
   let gainedRep = 0;
   let moodDelta = decorBonus;
@@ -420,23 +485,28 @@ function openDay() {
 
   for (let i = 0; i < guestCount; i += 1) {
     const dish = pick(unlockedDishes());
-    const patient = i < cookingCapacity;
+    const guest = pick(guests);
+    const patient = i < cookingCapacity + guest.patienceBonus;
     const tableIndex = tableIndexes[i];
     const tableLayout = getTableLayout(tableIndex);
     const layoutNote = describeTableLayout(tableLayout);
+    const preference = applyGuestPreference(guest, tableLayout);
     const customer = {
       id: createId(),
-      name: pick(customerNames),
-      face: customerFaces[i % customerFaces.length],
+      name: guest.name,
+      face: guest.face,
       dish,
-      status: patient ? `吃得舒展，${layoutNote}` : `等得久了，跑堂也忙不过来，${layoutNote}`,
+      status: patient
+        ? `吃得舒展，${layoutNote}${preference.note}`
+        : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}`,
     };
 
     state.tiles[tableIndex].customerId = customer.id;
     newCustomers.push(customer);
-    earned += patient ? dish.price + tableLayout.priceBonus : Math.floor((dish.price + tableLayout.priceBonus) * 0.6);
-    gainedRep += patient ? dish.reputation + tableLayout.reputationBonus : 0;
-    moodDelta += (patient ? 3 : -9) + tableLayout.moodBonus;
+    const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins;
+    earned += patient ? dishValue : Math.floor(dishValue * 0.6);
+    gainedRep += patient ? dish.reputation + tableLayout.reputationBonus + preference.reputation : 0;
+    moodDelta += (patient ? 3 : -9) + tableLayout.moodBonus + preference.mood;
   }
 
   const rent = 12 + state.day * 2;
@@ -471,6 +541,51 @@ function describeTableLayout(layout) {
   }
 
   return "觉得座位寻常。";
+}
+
+function applyGuestPreference(guest, layout) {
+  if (guest.name === "书生" && layout.decorCount > 0) {
+    return {
+      coins: 0,
+      mood: 3,
+      reputation: 1,
+      note: "书生尤爱这处雅座。",
+    };
+  }
+
+  if (guest.name === "茶博士" && state.reputation >= 12) {
+    return {
+      coins: 1,
+      mood: 1,
+      reputation: 1,
+      note: "茶博士觉得店名传得不虚。",
+    };
+  }
+
+  if (guest.name === "瓦舍伶人" && state.runners > 0) {
+    return {
+      coins: 3,
+      mood: 2,
+      reputation: 0,
+      note: "伶人见跑堂利索，添赏了几文。",
+    };
+  }
+
+  if (guest.name === "船客" && layout.stoveCount > 0) {
+    return {
+      coins: 0,
+      mood: -4,
+      reputation: 0,
+      note: "船客嫌灶烟太近。",
+    };
+  }
+
+  return {
+    coins: 0,
+    mood: 0,
+    reputation: 0,
+    note: "",
+  };
 }
 
 function createId() {
