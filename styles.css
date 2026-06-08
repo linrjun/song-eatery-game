@@ -352,12 +352,14 @@ h2 {
   line-height: 1.35;
 }
 
-.guest-panel {
+.guest-panel,
+.guest-book {
   display: grid;
   gap: 8px;
 }
 
-.guest-card {
+.guest-card,
+.guest-record {
   display: grid;
   grid-template-columns: 38px 1fr;
   gap: 9px;
@@ -367,7 +369,12 @@ h2 {
   background: rgba(76, 138, 115, 0.12);
 }
 
-.guest-card.locked {
+.guest-record {
+  background: rgba(201, 151, 63, 0.12);
+}
+
+.guest-card.locked,
+.guest-record.locked {
   opacity: 0.52;
 }
 
@@ -382,11 +389,14 @@ h2 {
 }
 
 .guest-card strong,
-.guest-card p {
+.guest-card p,
+.guest-record strong,
+.guest-record p {
   margin: 0;
 }
 
-.guest-card p {
+.guest-card p,
+.guest-record p {
   font-size: 12px;
   line-height: 1.35;
 }
