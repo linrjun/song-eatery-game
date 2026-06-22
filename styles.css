@@ -302,6 +302,19 @@ h2 {
   isolation: isolate;
 }
 
+.tile.lot {
+  color: rgba(255, 255, 255, 0.72);
+  background: #5b4a3d;
+}
+
+.tile.lot::before {
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0 6px,
+    transparent 6px 12px
+  );
+}
+
 .tile::before {
   position: absolute;
   inset: 5px;
@@ -399,6 +412,36 @@ h2 {
 .staff-panel {
   display: grid;
   gap: 8px;
+}
+
+.expansion-panel {
+  display: grid;
+  gap: 8px;
+}
+
+.expansion-card {
+  display: grid;
+  gap: 3px;
+  min-height: 68px;
+  padding: 9px;
+  background: rgba(92, 127, 154, 0.12);
+}
+
+.expansion-card strong,
+.expansion-card p,
+.expansion-card small {
+  display: block;
+  margin: 0;
+}
+
+.expansion-card p,
+.expansion-card small {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.expansion-card small {
+  color: var(--muted);
 }
 
 .staff-card {
