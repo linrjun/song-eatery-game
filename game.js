@@ -70,6 +70,7 @@ const elements = {
   openDayBtn: document.querySelector('#openDayBtn'),
   researchBtn: document.querySelector('#researchBtn'),
   hireRunnerBtn: document.querySelector('#hireRunnerBtn'),
+  trainRunnerBtn: document.querySelector('#trainRunnerBtn'),
   resetGameBtn: document.querySelector('#resetGameBtn'),
   goalTables: document.querySelector('#goalTables'),
   goalStove: document.querySelector('#goalStove'),
@@ -85,6 +86,7 @@ function createInitialState() {
     selectedTool: 'floor',
     unlockedDishCount: 1,
     runners: 0,
+    runnerLevel: 1,
     customers: [],
     guestBook: Object.fromEntries(guestTypes.map((guest) => [guest.name, { visits: 0, coins: 0 }])),
     tiles: Array.from({ length: GRID_WIDTH * GRID_HEIGHT }, (_, index) => ({
@@ -170,6 +172,7 @@ function getSavePayload() {
     selectedTool: state.selectedTool,
     unlockedDishCount: state.unlockedDishCount,
     runners: state.runners,
+    runnerLevel: state.runnerLevel,
     guestBook: state.guestBook,
     tiles: state.tiles.map((tile) => ({ type: tile.type, customerId: null })),
   };
@@ -287,15 +290,7 @@ function renderFestivalPanel() {
   const festival = currentFestival();
   const upcoming = nextFestival();
   const daysLeft = 3 - ((state.day - 1) % 3);
-  elements.festivalPanel.innerHTML = `
-    <article class='festival-card active'>
-      <span class='festival-month'>${festival.month}</span>
-      <div><strong>${festival.name}</strong><p>${festival.effect}</p><small>还剩 ${daysLeft} 日</small></div>
-    </article>
-    <article class='festival-card'>
-      <span class='festival-month'>${upcoming.month}</span>
-      <div><strong>下个节令：${upcoming.name}</strong><p>${upcoming.effect}</p></div>
-    </article>`;
+  elements.festivalPanel.innerHTML = `<article class='festival-card active'><span class='festival-month'>${festival.month}</span><div><strong>${festival.name}</strong><p>${festival.effect}</p><small>还剩 ${daysLeft} 日</small></div></article><article class='festival-card'><span class='festival-month'>${upcoming.month}</span><div><strong>下个节令：${upcoming.name}</strong><p>${upcoming.effect}</p></div></article>`;
 }
 
 function renderTools() {
@@ -307,10 +302,7 @@ function renderTools() {
     button.dataset.tool = tool.id;
     button.setAttribute('aria-pressed', String(tool.id === state.selectedTool));
     button.innerHTML = `<span class='tool-icon'>${tool.icon}</span><span class='tool-copy'><strong>${tool.name}</strong><small>${tool.tip}</small></span><span class='price'>${tool.cost}</span>`;
-    button.addEventListener('click', () => {
-      state.selectedTool = tool.id;
-      render();
-    });
+    button.addEventListener('click', () => { state.selectedTool = tool.id; render(); });
     elements.buildTools.appendChild(button);
   });
 }
@@ -333,19 +325,20 @@ function renderMenu() {
   elements.researchBtn.disabled = state.unlockedDishCount >= dishes.length || state.coins < nextCost;
 }
 
-function staffWage() {
-  return state.runners * 12;
-}
-
-function hireRunnerCost() {
-  return 65 + state.runners * 35;
-}
+function staffWage() { return state.runners * (10 + state.runnerLevel * 4); }
+function hireRunnerCost() { return 65 + state.runners * 35; }
+function runnerCapacity() { return state.runners * (1 + state.runnerLevel); }
+function trainRunnerCost() { return 80 + state.runnerLevel * 55; }
 
 function renderStaff() {
   const hireCost = hireRunnerCost();
-  elements.staffPanel.innerHTML = `<article class='staff-card'><span class='staff-icon'>跑</span><div><strong>跑堂 ${state.runners} 人</strong><p>每日薪水 ${staffWage()} 钱，接待能力 +${state.runners * 2}</p></div></article>`;
+  const trainCost = trainRunnerCost();
+  const maxLevel = state.runnerLevel >= 4;
+  elements.staffPanel.innerHTML = `<article class='staff-card'><span class='staff-icon'>跑</span><div><strong>跑堂 ${state.runners} 人 · ${state.runnerLevel} 级</strong><p>每日薪水 ${staffWage()} 钱，接待能力 +${runnerCapacity()}</p><small>升级会提高效率，也会抬高薪水。</small></div></article>`;
   elements.hireRunnerBtn.textContent = `雇跑堂 ${hireCost} 钱`;
   elements.hireRunnerBtn.disabled = state.coins < hireCost;
+  elements.trainRunnerBtn.textContent = maxLevel ? '跑堂满级' : `升跑堂 ${trainCost} 钱`;
+  elements.trainRunnerBtn.disabled = state.runners === 0 || maxLevel || state.coins < trainCost;
 }
 
 function renderGuestPanel() {
@@ -376,18 +369,8 @@ function renderLayoutEffects() {
   const moodTotal = summary.moodBonus + summary.compatibility.moodBonus;
   const priceTotal = summary.priceBonus + summary.compatibility.priceBonus;
   const reputationTotal = summary.reputationBonus + summary.compatibility.reputationBonus;
-  const compatibilityRows = summary.compatibility.active.length
-    ? summary.compatibility.active.map((compatibility) => `<div class='compatibility-row'><dt>${compatibility.name}</dt><dd>${compatibility.description}</dd></div>`).join('')
-    : `<div class='compatibility-row muted'><dt>相性</dt><dd>暂无成套设施</dd></div>`;
-  elements.layoutEffects.innerHTML = `
-    <div><dt>临窗食案</dt><dd>${summary.windowSeats}/${summary.tableCount}</dd></div>
-    <div><dt>烟火扰客</dt><dd>${summary.smokySeats}</dd></div>
-    <div><dt>满意修正</dt><dd>${moodTotal >= 0 ? '+' : ''}${moodTotal}</dd></div>
-    <div><dt>客单加成</dt><dd>${priceTotal > 0 ? '+' + priceTotal : '0'} 钱</dd></div>
-    <div><dt>名声加成</dt><dd>${reputationTotal > 0 ? '+' + reputationTotal : '0'}</dd></div>
-    <div><dt>出菜能力</dt><dd>+${summary.compatibility.capacityBonus}</dd></div>
-    <div><dt>额外客流</dt><dd>+${summary.compatibility.guestBonus}</dd></div>
-    ${compatibilityRows}`;
+  const compatibilityRows = summary.compatibility.active.length ? summary.compatibility.active.map((compatibility) => `<div class='compatibility-row'><dt>${compatibility.name}</dt><dd>${compatibility.description}</dd></div>`).join('') : `<div class='compatibility-row muted'><dt>相性</dt><dd>暂无成套设施</dd></div>`;
+  elements.layoutEffects.innerHTML = `<div><dt>临窗食案</dt><dd>${summary.windowSeats}/${summary.tableCount}</dd></div><div><dt>烟火扰客</dt><dd>${summary.smokySeats}</dd></div><div><dt>满意修正</dt><dd>${moodTotal >= 0 ? '+' : ''}${moodTotal}</dd></div><div><dt>客单加成</dt><dd>${priceTotal > 0 ? '+' + priceTotal : '0'} 钱</dd></div><div><dt>名声加成</dt><dd>${reputationTotal > 0 ? '+' + reputationTotal : '0'}</dd></div><div><dt>出菜能力</dt><dd>+${summary.compatibility.capacityBonus}</dd></div><div><dt>额外客流</dt><dd>+${summary.compatibility.guestBonus}</dd></div>${compatibilityRows}`;
 }
 
 function renderGrid() {
@@ -424,26 +407,15 @@ function renderCustomers() {
   });
 }
 
-function tileName(type) {
-  return { empty: '空地', floor: '木地', table: '食案', stove: '灶台', decor: '花窗', entrance: '门面' }[type];
-}
-
-function tileIcon(type) {
-  return { empty: '', floor: '□', table: '桌', stove: '灶', decor: '景', entrance: '门' }[type];
-}
+function tileName(type) { return { empty: '空地', floor: '木地', table: '食案', stove: '灶台', decor: '花窗', entrance: '门面' }[type]; }
+function tileIcon(type) { return { empty: '', floor: '□', table: '桌', stove: '灶', decor: '景', entrance: '门' }[type]; }
 
 function buildAt(index) {
   const tile = state.tiles[index];
   const tool = getTool(state.selectedTool);
   if (tile.type === 'entrance') return say('门面不能改，客人要从这里进来。');
   if (tile.customerId) return say('客人正在用膳，先别动这一格。');
-  if (tool.id === 'remove') {
-    tile.type = 'empty';
-    say('拆除完成，腾出了一块地。');
-    saveGame();
-    render();
-    return;
-  }
+  if (tool.id === 'remove') { tile.type = 'empty'; say('拆除完成，腾出了一块地。'); saveGame(); render(); return; }
   if (state.coins < tool.cost) return say(`铜钱不够，${tool.name} 需要 ${tool.cost} 钱。`);
   if (tool.id !== 'floor' && tile.type === 'empty') return say('先铺木地，再摆设施。');
   if (tile.type === tool.id) return say('这里已经是这个设施了。');
@@ -454,10 +426,7 @@ function buildAt(index) {
   render();
 }
 
-function researchCost() {
-  return 55 + state.unlockedDishCount * 35;
-}
-
+function researchCost() { return 55 + state.unlockedDishCount * 35; }
 function researchDish() {
   const cost = researchCost();
   if (state.unlockedDishCount >= dishes.length || state.coins < cost) return;
@@ -479,6 +448,18 @@ function hireRunner() {
   render();
 }
 
+function trainRunner() {
+  const cost = trainRunnerCost();
+  if (state.runners === 0) return say('先雇一个跑堂，再谈调教手脚。');
+  if (state.runnerLevel >= 4) return say('跑堂已经练到头了，再升就该自己开店了。');
+  if (state.coins < cost) return say(`铜钱不够，升跑堂需要 ${cost} 钱。`);
+  state.coins -= cost;
+  state.runnerLevel += 1;
+  say(`跑堂升到 ${state.runnerLevel} 级，端菜、收钱、安抚客人都更利索了。`);
+  saveGame();
+  render();
+}
+
 function openDay() {
   const tableIndexes = state.tiles.map((tile, index) => ({ tile, index })).filter(({ tile }) => tile.type === 'table' && !tile.customerId).map(({ index }) => index);
   const stoveCount = countTiles('stove');
@@ -488,7 +469,7 @@ function openDay() {
   const layoutSummary = getLayoutSummary();
   const compatibility = layoutSummary.compatibility;
   const guestCount = Math.min(tableIndexes.length, 2 + Math.floor(state.reputation / 10) + festival.guestBonus + compatibility.guestBonus);
-  const cookingCapacity = Math.max(1, stoveCount * 2 + state.runners * 2 + compatibility.capacityBonus);
+  const cookingCapacity = Math.max(1, stoveCount * 2 + runnerCapacity() + compatibility.capacityBonus);
   const wage = staffWage();
   const guests = availableGuestTypes();
   let earned = 0;
@@ -506,14 +487,7 @@ function openDay() {
     const cuisineBonus = getCuisineBonus(dish, guest);
     const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins + cuisineBonus.coins + festival.coinBonus + compatibility.priceBonus;
     const paid = patient ? dishValue : Math.floor(dishValue * 0.6);
-    const customer = {
-      id: createId(),
-      name: guest.name,
-      face: guest.face,
-      dish,
-      paid,
-      status: patient ? `吃得舒展，${layoutNote}${preference.note}${cuisineBonus.note}` : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}${cuisineBonus.note}`,
-    };
+    const customer = { id: createId(), name: guest.name, face: guest.face, dish, paid, status: patient ? `吃得舒展，${layoutNote}${preference.note}${cuisineBonus.note}` : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}${cuisineBonus.note}` };
     state.tiles[tableIndex].customerId = customer.id;
     newCustomers.push(customer);
     state.guestBook[guest.name].visits += 1;
@@ -529,61 +503,25 @@ function openDay() {
   state.customers = newCustomers;
   state.day += 1;
   saveGame();
-  setTimeout(() => {
-    state.tiles.forEach((tile) => {
-      tile.customerId = null;
-    });
-    render();
-  }, 1800);
+  setTimeout(() => { state.tiles.forEach((tile) => { tile.customerId = null; }); render(); }, 1800);
   const compatibilityText = compatibility.active.length ? `相性「${compatibility.active.map((item) => item.name).join('、')}」生效。` : '尚未形成设施相性。';
   const layoutMoodTotal = layoutSummary.moodBonus + compatibility.moodBonus;
   say(`节庆「${festival.name}」生效：${festival.effect}。${compatibilityText}今日收入 ${earned} 钱，扣除柴米租脚 ${rent} 钱、薪水 ${wage} 钱。布局带来满意 ${layoutMoodTotal >= 0 ? '+' : ''}${layoutMoodTotal}。`);
   render();
 }
 
-function describeTableLayout(layout) {
-  if (layout.decorCount > 0 && layout.stoveCount > 0) return '临窗有雅趣，可惜烟火略扰。';
-  if (layout.decorCount > 0) return '临窗见景，多添了几分兴致。';
-  if (layout.stoveCount > 0) return '灶烟贴席，心里有些不爽利。';
-  return '觉得座位寻常。';
-}
-
-function applyGuestPreference(guest, layout) {
-  if (guest.name === '书生' && layout.decorCount > 0) return { coins: 0, mood: 3, reputation: 1, note: '书生尤爱这处雅座。' };
-  if (guest.name === '茶博士' && state.reputation >= 12) return { coins: 1, mood: 1, reputation: 1, note: '茶博士觉得店名传得不虚。' };
-  if (guest.name === '瓦舍伶人' && state.runners > 0) return { coins: 3, mood: 2, reputation: 0, note: '伶人见跑堂利索，添赏了几文。' };
-  if (guest.name === '船客' && layout.stoveCount > 0) return { coins: 0, mood: -4, reputation: 0, note: '船客嫌灶烟太近。' };
-  return { coins: 0, mood: 0, reputation: 0, note: '' };
-}
-
-function createId() {
-  if (crypto.randomUUID) return crypto.randomUUID();
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
-function pick(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
-
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function say(message) {
-  elements.advisor.textContent = message;
-}
-
-function render() {
-  renderTools();
-  renderMenu();
-  renderGrid();
-  renderCustomers();
-  updateStats();
-}
+function describeTableLayout(layout) { if (layout.decorCount > 0 && layout.stoveCount > 0) return '临窗有雅趣，可惜烟火略扰。'; if (layout.decorCount > 0) return '临窗见景，多添了几分兴致。'; if (layout.stoveCount > 0) return '灶烟贴席，心里有些不爽利。'; return '觉得座位寻常。'; }
+function applyGuestPreference(guest, layout) { if (guest.name === '书生' && layout.decorCount > 0) return { coins: 0, mood: 3, reputation: 1, note: '书生尤爱这处雅座。' }; if (guest.name === '茶博士' && state.reputation >= 12) return { coins: 1, mood: 1, reputation: 1, note: '茶博士觉得店名传得不虚。' }; if (guest.name === '瓦舍伶人' && state.runners > 0) return { coins: 3, mood: 2, reputation: 0, note: '伶人见跑堂利索，添赏了几文。' }; if (guest.name === '船客' && layout.stoveCount > 0) return { coins: 0, mood: -4, reputation: 0, note: '船客嫌灶烟太近。' }; return { coins: 0, mood: 0, reputation: 0, note: '' }; }
+function createId() { if (crypto.randomUUID) return crypto.randomUUID(); return `${Date.now()}-${Math.random().toString(16).slice(2)}`; }
+function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function say(message) { elements.advisor.textContent = message; }
+function render() { renderTools(); renderMenu(); renderGrid(); renderCustomers(); updateStats(); }
 
 elements.openDayBtn.addEventListener('click', openDay);
 elements.researchBtn.addEventListener('click', researchDish);
 elements.hireRunnerBtn.addEventListener('click', hireRunner);
+elements.trainRunnerBtn.addEventListener('click', trainRunner);
 elements.resetGameBtn.addEventListener('click', resetGame);
 
 loadGame();
