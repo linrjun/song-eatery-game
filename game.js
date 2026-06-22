@@ -3,6 +3,25 @@ const GRID_HEIGHT = 6;
 const SAVE_KEY = "song-eatery-game-save-v2";
 const LEGACY_SAVE_KEY = "song-eatery-game-save-v1";
 
+const expansionStages = [
+  {
+    name: "开东厢",
+    cost: 180,
+    unlockRep: 8,
+    description: "解锁右侧 12 格",
+    tileIndexes: [6, 7, 14, 15, 22, 23, 30, 31, 38, 39, 46, 47],
+  },
+  {
+    name: "辟后院",
+    cost: 320,
+    unlockRep: 18,
+    description: "解锁后排 6 格",
+    tileIndexes: [40, 41, 42, 43, 44, 45],
+  },
+];
+
+const lotTileIndexes = expansionStages.flatMap((stage) => stage.tileIndexes);
+
 const tools = [
   {
     id: "floor",
@@ -296,12 +315,14 @@ const elements = {
   guestPanel: document.querySelector("#guestPanel"),
   guestBook: document.querySelector("#guestBook"),
   festivalPanel: document.querySelector("#festivalPanel"),
+  expansionPanel: document.querySelector("#expansionPanel"),
   staffPanel: document.querySelector("#staffPanel"),
   saveStatus: document.querySelector("#saveStatus"),
   openDayBtn: document.querySelector("#openDayBtn"),
   researchBtn: document.querySelector("#researchBtn"),
   hireRunnerBtn: document.querySelector("#hireRunnerBtn"),
   trainRunnerBtn: document.querySelector("#trainRunnerBtn"),
+  expandBtn: document.querySelector("#expandBtn"),
   resetGameBtn: document.querySelector("#resetGameBtn"),
   goalTables: document.querySelector("#goalTables"),
   goalStove: document.querySelector("#goalStove"),
@@ -318,17 +339,35 @@ function createInitialState() {
     unlockedDishCount: 1,
     runners: 0,
     runnerLevel: 1,
+    expansionLevel: 0,
     customers: [],
     guestBook: Object.fromEntries(guestTypes.map((guest) => [guest.name, { visits: 0, coins: 0 }])),
     tiles: Array.from({ length: GRID_WIDTH * GRID_HEIGHT }, (_, index) => ({
-      type: index === 16 ? "entrance" : index === 17 || index === 18 || index === 25 ? "floor" : "empty",
+      type: initialTileType(index),
       customerId: null,
     })),
   };
 }
 
+function initialTileType(index) {
+  if (index === 16) {
+    return "entrance";
+  }
+
+  if (index === 17 || index === 18 || index === 25) {
+    return "floor";
+  }
+
+  if (lotTileIndexes.includes(index)) {
+    return "lot";
+  }
+
+  return "empty";
+}
+
 function hydrateState(savedState) {
   const initialState = createInitialState();
+  const legacyExpansion = typeof savedState.expansionLevel !== "number";
   Object.assign(state, {
     ...initialState,
     ...savedState,
@@ -338,11 +377,19 @@ function hydrateState(savedState) {
       ...(savedState.guestBook || {}),
     },
     tiles: Array.isArray(savedState.tiles) && savedState.tiles.length === GRID_WIDTH * GRID_HEIGHT
-      ? savedState.tiles.map((tile, index) => ({
-          ...initialState.tiles[index],
-          ...tile,
-          customerId: null,
-        }))
+      ? savedState.tiles.map((tile, index) => {
+          const hydratedTile = {
+            ...initialState.tiles[index],
+            ...tile,
+            customerId: null,
+          };
+
+          if (legacyExpansion && lotTileIndexes.includes(index) && hydratedTile.type === "empty") {
+            hydratedTile.type = "lot";
+          }
+
+          return hydratedTile;
+        })
       : initialState.tiles,
   });
 }
@@ -431,6 +478,7 @@ function getSavePayload() {
     unlockedDishCount: state.unlockedDishCount,
     runners: state.runners,
     runnerLevel: state.runnerLevel,
+    expansionLevel: state.expansionLevel,
     guestBook: state.guestBook,
     tiles: state.tiles.map((tile) => ({
       type: tile.type,
@@ -627,6 +675,7 @@ function updateStats() {
   elements.goalRep.classList.toggle("done", state.reputation >= 15);
   renderLayoutEffects();
   renderStaff();
+  renderExpansionPanel();
   renderFestivalPanel();
   renderGuestPanel();
   renderGuestBook();
@@ -761,6 +810,68 @@ function renderStaff() {
   elements.hireRunnerBtn.disabled = state.coins < hireCost;
   elements.trainRunnerBtn.textContent = maxLevel ? "跑堂满级" : `升跑堂 ${trainCost} 钱`;
   elements.trainRunnerBtn.disabled = state.runners === 0 || maxLevel || state.coins < trainCost;
+}
+
+function nextExpansion() {
+  return expansionStages[state.expansionLevel] || null;
+}
+
+function renderExpansionPanel() {
+  const stage = nextExpansion();
+  const openTiles = state.tiles.filter((tile) => tile.type !== "lot").length;
+
+  if (!stage) {
+    elements.expansionPanel.innerHTML = `
+      <article class="expansion-card">
+        <strong>店面已全部扩开</strong>
+        <p>可经营 ${openTiles}/${state.tiles.length} 格。</p>
+      </article>
+    `;
+    elements.expandBtn.textContent = "已全部扩建";
+    elements.expandBtn.disabled = true;
+    return;
+  }
+
+  const hasReputation = state.reputation >= stage.unlockRep;
+  const hasCoins = state.coins >= stage.cost;
+  elements.expansionPanel.innerHTML = `
+    <article class="expansion-card">
+      <strong>${stage.name}</strong>
+      <p>${stage.description}，需要名声 ${stage.unlockRep}。</p>
+      <small>当前可经营 ${openTiles}/${state.tiles.length} 格。</small>
+    </article>
+  `;
+  elements.expandBtn.textContent = `${stage.name} ${stage.cost} 钱`;
+  elements.expandBtn.disabled = !hasReputation || !hasCoins;
+}
+
+function expandShop() {
+  const stage = nextExpansion();
+  if (!stage) {
+    say("店面已经全部扩开了，接下来该好好规划布局。");
+    return;
+  }
+
+  if (state.reputation < stage.unlockRep) {
+    say(`${stage.name} 至少需要名声 ${stage.unlockRep}。`);
+    return;
+  }
+
+  if (state.coins < stage.cost) {
+    say(`${stage.name} 需要 ${stage.cost} 钱，先多开几日攒些本钱。`);
+    return;
+  }
+
+  state.coins -= stage.cost;
+  stage.tileIndexes.forEach((index) => {
+    if (state.tiles[index].type === "lot") {
+      state.tiles[index].type = "empty";
+    }
+  });
+  state.expansionLevel += 1;
+  say(`${stage.name} 完成，店面多出 ${stage.tileIndexes.length} 格可规划空间。`);
+  saveGame();
+  render();
 }
 
 function renderGuestPanel() {
@@ -936,6 +1047,7 @@ function renderCustomers() {
 
 function tileName(type) {
   return {
+    lot: "未扩建",
     empty: "空地",
     floor: "木地",
     table: "食案",
@@ -952,6 +1064,7 @@ function tileName(type) {
 
 function tileIcon(type) {
   return {
+    lot: "封",
     empty: "",
     floor: "□",
     table: "桌",
@@ -972,6 +1085,12 @@ function buildAt(index) {
 
   if (tile.type === "entrance") {
     say("门面不能改，客人要从这里进来。");
+    return;
+  }
+
+  if (tile.type === "lot") {
+    const stage = nextExpansion();
+    say(stage ? `这块地还没买下。下一步可用「${stage.name}」扩开。` : "这块地暂不可用。");
     return;
   }
 
@@ -1217,6 +1336,7 @@ elements.openDayBtn.addEventListener("click", openDay);
 elements.researchBtn.addEventListener("click", researchDish);
 elements.hireRunnerBtn.addEventListener("click", hireRunner);
 elements.trainRunnerBtn.addEventListener("click", trainRunner);
+elements.expandBtn.addEventListener("click", expandShop);
 elements.resetGameBtn.addEventListener("click", resetGame);
 
 loadGame();
