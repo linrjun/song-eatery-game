@@ -137,6 +137,11 @@ h2 {
   outline-color: var(--wood-dark);
 }
 
+.tool-button.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .tool-icon {
   display: grid;
   width: 38px;
