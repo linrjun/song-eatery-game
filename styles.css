@@ -177,6 +177,52 @@ h2 {
   background: rgba(76, 138, 115, 0.12);
 }
 
+.menu-item div {
+  display: grid;
+  gap: 2px;
+}
+
+.menu-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.cuisine-progress {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.cuisine-card {
+  display: grid;
+  gap: 2px;
+  min-height: 58px;
+  padding: 8px;
+  background: rgba(201, 151, 63, 0.14);
+}
+
+.cuisine-card.locked {
+  opacity: 0.5;
+}
+
+.cuisine-card strong,
+.cuisine-card span,
+.cuisine-card small {
+  margin: 0;
+}
+
+.cuisine-card span {
+  color: var(--brick);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cuisine-card small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .primary-action,
 .secondary-action,
 .street button {
