@@ -11,11 +11,19 @@ const tools = [
   { id: 'remove', name: '拆除', icon: '×', cost: 0, tip: '清空一个格子', className: 'empty' },
 ];
 
+const cuisines = [
+  { id: 'soup', name: '羹汤', bonusText: '满意更稳', effect: { mood: 1, coins: 0, reputation: 0 } },
+  { id: 'noodle', name: '面点', bonusText: '客单更高', effect: { mood: 0, coins: 1, reputation: 0 } },
+  { id: 'wine', name: '酒水', bonusText: '伶人与行商多付钱', effect: { mood: 0, coins: 2, reputation: 0 } },
+  { id: 'seasonal', name: '节令菜', bonusText: '节庆时名声更快涨', effect: { mood: 0, coins: 0, reputation: 1 } },
+];
+
 const dishes = [
-  { name: '葱泼兔', price: 18, reputation: 2 },
-  { name: '蟹酿橙', price: 28, reputation: 4 },
-  { name: '拨霞供', price: 35, reputation: 5 },
-  { name: '梅花汤饼', price: 42, reputation: 6 },
+  { name: '葱泼兔', cuisine: '羹汤', cuisineId: 'soup', price: 18, reputation: 2 },
+  { name: '梅花汤饼', cuisine: '面点', cuisineId: 'noodle', price: 24, reputation: 3 },
+  { name: '桂花酒', cuisine: '酒水', cuisineId: 'wine', price: 30, reputation: 3 },
+  { name: '蟹酿橙', cuisine: '节令菜', cuisineId: 'seasonal', price: 36, reputation: 5 },
+  { name: '拨霞供', cuisine: '羹汤', cuisineId: 'soup', price: 42, reputation: 6 },
 ];
 
 const guestTypes = [
@@ -34,10 +42,10 @@ const festivals = [
 ];
 
 const compatibilities = [
-  { id: 'stoveLine', name: '双灶成房', hint: '两口灶台相邻', description: '出菜能力 +1', effect: { capacity: 1, mood: 0, price: 0, reputation: 0, guests: 0 } },
-  { id: 'windowScene', name: '花窗成景', hint: '花窗达到 2 扇', description: '满意 +4，名声 +1', effect: { capacity: 0, mood: 4, price: 0, reputation: 1, guests: 0 } },
-  { id: 'windowSeats', name: '雅座成区', hint: '临窗食案达到 2 张', description: '客单 +2，名声 +1', effect: { capacity: 0, mood: 0, price: 2, reputation: 1, guests: 0 } },
-  { id: 'openHall', name: '堂口开阔', hint: '食案达到 3 张', description: '客流 +1', effect: { capacity: 0, mood: 0, price: 0, reputation: 0, guests: 1 } },
+  { id: 'stoveLine', name: '双灶成房', description: '出菜能力 +1', effect: { capacity: 1, mood: 0, price: 0, reputation: 0, guests: 0 } },
+  { id: 'windowScene', name: '花窗成景', description: '满意 +4，名声 +1', effect: { capacity: 0, mood: 4, price: 0, reputation: 1, guests: 0 } },
+  { id: 'windowSeats', name: '雅座成区', description: '客单 +2，名声 +1', effect: { capacity: 0, mood: 0, price: 2, reputation: 1, guests: 0 } },
+  { id: 'openHall', name: '堂口开阔', description: '客流 +1', effect: { capacity: 0, mood: 0, price: 0, reputation: 0, guests: 1 } },
 ];
 
 const state = createInitialState();
@@ -111,6 +119,15 @@ function unlockedDishes() {
   return dishes.slice(0, state.unlockedDishCount);
 }
 
+function cuisineProgress() {
+  const unlocked = unlockedDishes();
+  return cuisines.map((cuisine) => {
+    const unlockedCount = unlocked.filter((dish) => dish.cuisineId === cuisine.id).length;
+    const totalCount = dishes.filter((dish) => dish.cuisineId === cuisine.id).length;
+    return { ...cuisine, unlockedCount, totalCount, active: unlockedCount > 0 };
+  });
+}
+
 function currentFestivalIndex() {
   return Math.floor((state.day - 1) / 3) % festivals.length;
 }
@@ -121,6 +138,22 @@ function currentFestival() {
 
 function nextFestival() {
   return festivals[(currentFestivalIndex() + 1) % festivals.length];
+}
+
+function getCuisineBonus(dish, guest) {
+  const cuisine = cuisines.find((item) => item.id === dish.cuisineId);
+  if (!cuisine) return { coins: 0, mood: 0, reputation: 0, note: '' };
+  const progress = cuisineProgress().find((item) => item.id === cuisine.id);
+  const level = progress?.unlockedCount || 0;
+  const festival = currentFestival();
+  const wineGuestBonus = cuisine.id === 'wine' && (guest.name === '行商' || guest.name === '瓦舍伶人') ? level : 0;
+  const seasonalRepBonus = cuisine.id === 'seasonal' && festival.name !== '寒食踏青' ? 1 : 0;
+  return {
+    coins: cuisine.effect.coins * level + wineGuestBonus,
+    mood: cuisine.effect.mood * level,
+    reputation: cuisine.effect.reputation * level + seasonalRepBonus,
+    note: ` ${cuisine.name}菜线加成。`,
+  };
 }
 
 function availableGuestTypes() {
@@ -209,7 +242,6 @@ function getCompatibilitySummary(layout) {
     if (compatibility.id === 'openHall') return layout.tableCount >= 3;
     return false;
   });
-
   return active.reduce(
     (summary, compatibility) => ({
       active: [...summary.active, compatibility],
@@ -288,11 +320,16 @@ function renderMenu() {
   unlockedDishes().forEach((dish) => {
     const item = document.createElement('div');
     item.className = 'menu-item';
-    item.innerHTML = `<strong>${dish.name}</strong><span>${dish.price} 钱</span>`;
+    item.innerHTML = `<div><strong>${dish.name}</strong><small>${dish.cuisine}</small></div><span>${dish.price} 钱</span>`;
     elements.menuList.appendChild(item);
   });
+  const progressList = document.createElement('div');
+  progressList.className = 'cuisine-progress';
+  progressList.innerHTML = cuisineProgress().map((cuisine) => `<article class='cuisine-card${cuisine.active ? '' : ' locked'}'><strong>${cuisine.name}</strong><span>${cuisine.unlockedCount}/${cuisine.totalCount}</span><small>${cuisine.active ? cuisine.bonusText : '待研制'}</small></article>`).join('');
+  elements.menuList.appendChild(progressList);
   const nextCost = researchCost();
-  elements.researchBtn.textContent = state.unlockedDishCount >= dishes.length ? '菜谱已全' : `研制新菜 ${nextCost} 钱`;
+  const nextDish = dishes[state.unlockedDishCount];
+  elements.researchBtn.textContent = state.unlockedDishCount >= dishes.length ? '菜谱已全' : `研制${nextDish.cuisine} ${nextCost} 钱`;
   elements.researchBtn.disabled = state.unlockedDishCount >= dishes.length || state.coins < nextCost;
 }
 
@@ -398,14 +435,8 @@ function tileIcon(type) {
 function buildAt(index) {
   const tile = state.tiles[index];
   const tool = getTool(state.selectedTool);
-  if (tile.type === 'entrance') {
-    say('门面不能改，客人要从这里进来。');
-    return;
-  }
-  if (tile.customerId) {
-    say('客人正在用膳，先别动这一格。');
-    return;
-  }
+  if (tile.type === 'entrance') return say('门面不能改，客人要从这里进来。');
+  if (tile.customerId) return say('客人正在用膳，先别动这一格。');
   if (tool.id === 'remove') {
     tile.type = 'empty';
     say('拆除完成，腾出了一块地。');
@@ -413,18 +444,9 @@ function buildAt(index) {
     render();
     return;
   }
-  if (state.coins < tool.cost) {
-    say(`铜钱不够，${tool.name} 需要 ${tool.cost} 钱。`);
-    return;
-  }
-  if (tool.id !== 'floor' && tile.type === 'empty') {
-    say('先铺木地，再摆设施。');
-    return;
-  }
-  if (tile.type === tool.id) {
-    say('这里已经是这个设施了。');
-    return;
-  }
+  if (state.coins < tool.cost) return say(`铜钱不够，${tool.name} 需要 ${tool.cost} 钱。`);
+  if (tool.id !== 'floor' && tile.type === 'empty') return say('先铺木地，再摆设施。');
+  if (tile.type === tool.id) return say('这里已经是这个设施了。');
   state.coins -= tool.cost;
   tile.type = tool.id;
   say(`${tool.name} 已安置。`);
@@ -442,17 +464,14 @@ function researchDish() {
   state.coins -= cost;
   state.unlockedDishCount += 1;
   const dish = dishes[state.unlockedDishCount - 1];
-  say(`厨娘试成了「${dish.name}」，客人愿意多付些钱。`);
+  say(`厨娘试成了${dish.cuisine}「${dish.name}」，这条菜线开始给经营带来额外加成。`);
   saveGame();
   render();
 }
 
 function hireRunner() {
   const cost = hireRunnerCost();
-  if (state.coins < cost) {
-    say(`铜钱不够，雇跑堂需要 ${cost} 钱。`);
-    return;
-  }
+  if (state.coins < cost) return say(`铜钱不够，雇跑堂需要 ${cost} 钱。`);
   state.coins -= cost;
   state.runners += 1;
   say('新跑堂上工了，客人催菜时有人照应。');
@@ -463,10 +482,7 @@ function hireRunner() {
 function openDay() {
   const tableIndexes = state.tiles.map((tile, index) => ({ tile, index })).filter(({ tile }) => tile.type === 'table' && !tile.customerId).map(({ index }) => index);
   const stoveCount = countTiles('stove');
-  if (tableIndexes.length === 0) {
-    say('没有食案，客人来了也坐不下。');
-    return;
-  }
+  if (tableIndexes.length === 0) return say('没有食案，客人来了也坐不下。');
   const festival = currentFestival();
   const decorBonus = countTiles('decor') * 2;
   const layoutSummary = getLayoutSummary();
@@ -487,7 +503,8 @@ function openDay() {
     const tableLayout = getTableLayout(tableIndex);
     const layoutNote = describeTableLayout(tableLayout);
     const preference = applyGuestPreference(guest, tableLayout);
-    const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins + festival.coinBonus + compatibility.priceBonus;
+    const cuisineBonus = getCuisineBonus(dish, guest);
+    const dishValue = dish.price + tableLayout.priceBonus + guest.spendBonus + preference.coins + cuisineBonus.coins + festival.coinBonus + compatibility.priceBonus;
     const paid = patient ? dishValue : Math.floor(dishValue * 0.6);
     const customer = {
       id: createId(),
@@ -495,15 +512,15 @@ function openDay() {
       face: guest.face,
       dish,
       paid,
-      status: patient ? `吃得舒展，${layoutNote}${preference.note}` : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}`,
+      status: patient ? `吃得舒展，${layoutNote}${preference.note}${cuisineBonus.note}` : `等得久了，跑堂也忙不过来，${layoutNote}${preference.note}${cuisineBonus.note}`,
     };
     state.tiles[tableIndex].customerId = customer.id;
     newCustomers.push(customer);
     state.guestBook[guest.name].visits += 1;
     state.guestBook[guest.name].coins += paid;
     earned += paid;
-    gainedRep += patient ? dish.reputation + tableLayout.reputationBonus + preference.reputation : 0;
-    moodDelta += (patient ? 3 : -9) + tableLayout.moodBonus + preference.mood;
+    gainedRep += patient ? dish.reputation + tableLayout.reputationBonus + preference.reputation + cuisineBonus.reputation : 0;
+    moodDelta += (patient ? 3 : -9) + tableLayout.moodBonus + preference.mood + cuisineBonus.mood;
   }
   const rent = 12 + state.day * 2;
   state.coins += earned - rent - wage;
