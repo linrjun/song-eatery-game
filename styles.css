@@ -325,6 +325,26 @@ h2 {
   background: #80a68a;
 }
 
+.tile.counter {
+  background: #a96545;
+}
+
+.tile.wineRack {
+  background: #8d4f6f;
+}
+
+.tile.kitchen {
+  background: #6f6f58;
+}
+
+.tile.well {
+  background: #5f8ea0;
+}
+
+.tile.room {
+  background: #9274a6;
+}
+
 .tile.entrance {
   background: #9c4e31;
 }
@@ -398,13 +418,20 @@ h2 {
 }
 
 .staff-card strong,
-.staff-card p {
+.staff-card p,
+.staff-card small {
+  display: block;
   margin: 0;
 }
 
-.staff-card p {
+.staff-card p,
+.staff-card small {
   font-size: 12px;
   line-height: 1.35;
+}
+
+.staff-card small {
+  color: var(--muted);
 }
 
 .festival-panel {
