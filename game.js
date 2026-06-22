@@ -9,6 +9,7 @@ const tools = [
     name: "铺木地",
     icon: "□",
     cost: 5,
+    unlockRep: 0,
     tip: "扩大可经营区域",
     className: "floor",
   },
@@ -17,6 +18,7 @@ const tools = [
     name: "食案",
     icon: "桌",
     cost: 28,
+    unlockRep: 0,
     tip: "客人坐下点菜",
     className: "table",
   },
@@ -25,6 +27,7 @@ const tools = [
     name: "灶台",
     icon: "灶",
     cost: 45,
+    unlockRep: 0,
     tip: "提高出菜速度",
     className: "stove",
   },
@@ -33,6 +36,7 @@ const tools = [
     name: "花窗",
     icon: "景",
     cost: 22,
+    unlockRep: 0,
     tip: "提升满意和名声",
     className: "decor",
   },
@@ -41,6 +45,7 @@ const tools = [
     name: "柜台",
     icon: "柜",
     cost: 38,
+    unlockRep: 0,
     tip: "理顺堂口动线",
     className: "counter",
   },
@@ -49,6 +54,7 @@ const tools = [
     name: "酒柜",
     icon: "酒",
     cost: 40,
+    unlockRep: 6,
     tip: "提高酒水消费",
     className: "wineRack",
   },
@@ -57,6 +63,7 @@ const tools = [
     name: "后厨",
     icon: "厨",
     cost: 55,
+    unlockRep: 10,
     tip: "配合灶台提速",
     className: "kitchen",
   },
@@ -65,6 +72,7 @@ const tools = [
     name: "水井",
     icon: "井",
     cost: 34,
+    unlockRep: 14,
     tip: "净水让菜更稳",
     className: "well",
   },
@@ -73,6 +81,7 @@ const tools = [
     name: "雅间",
     icon: "雅",
     cost: 70,
+    unlockRep: 20,
     tip: "招待高声望客人",
     className: "room",
   },
@@ -81,6 +90,7 @@ const tools = [
     name: "拆除",
     icon: "×",
     cost: 0,
+    unlockRep: 0,
     tip: "清空一个格子",
     className: "empty",
   },
@@ -343,6 +353,10 @@ function countTiles(type) {
 
 function getTool(id) {
   return tools.find((tool) => tool.id === id);
+}
+
+function isToolUnlocked(tool) {
+  return state.reputation >= tool.unlockRep;
 }
 
 function unlockedDishes() {
@@ -646,20 +660,27 @@ function renderTools() {
   elements.buildTools.innerHTML = "";
 
   tools.forEach((tool) => {
+    const unlocked = isToolUnlocked(tool);
     const button = document.createElement("button");
-    button.className = "tool-button";
+    button.className = `tool-button${unlocked ? "" : " locked"}`;
     button.type = "button";
     button.dataset.tool = tool.id;
-    button.setAttribute("aria-pressed", String(tool.id === state.selectedTool));
+    button.disabled = !unlocked;
+    button.setAttribute("aria-pressed", String(unlocked && tool.id === state.selectedTool));
     button.innerHTML = `
       <span class="tool-icon">${tool.icon}</span>
       <span class="tool-copy">
         <strong>${tool.name}</strong>
-        <small>${tool.tip}</small>
+        <small>${unlocked ? tool.tip : `名声 ${tool.unlockRep} 解锁`}</small>
       </span>
-      <span class="price">${tool.cost}</span>
+      <span class="price">${unlocked ? tool.cost : "锁"}</span>
     `;
     button.addEventListener("click", () => {
+      if (!unlocked) {
+        say(`${tool.name} 要等名声达到 ${tool.unlockRep} 才能请匠人营造。`);
+        return;
+      }
+
       state.selectedTool = tool.id;
       render();
     });
@@ -964,6 +985,11 @@ function buildAt(index) {
     say("拆除完成，腾出了一块地。");
     saveGame();
     render();
+    return;
+  }
+
+  if (!isToolUnlocked(tool)) {
+    say(`${tool.name} 要等名声达到 ${tool.unlockRep} 才能请匠人营造。`);
     return;
   }
 
